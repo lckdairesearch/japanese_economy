@@ -8,6 +8,7 @@ library(lubridate)
 library(seasonal)
 library(dynlm)
 library(clipr)
+library(scales) 
 
 # DATA ----
 source('RetrieveJapanData.R')
@@ -216,116 +217,4 @@ inflation_decomposed <- inflation_decomposed %>%
   ungroup() %>%
   mutate(laspeyres_weight = lag_hh_consumption / total_lag_hh_consumption) 
 
-
-
-
-
-
-# Analyse ----------------------------------------------------------------------
-inflation_decomposed %>%
-  mutate(
-    weighted_inflation = inflation * weight
-  ) %>%
-  group_by(date) %>%
-    # sum the weighted_inflation 
-    summarise(
-      inflation = sum(weighted_inflation, na.rm = TRUE)
-    ) %>%
-    ggplot(aes(x=date, y = inflation)) +
-    geom_line()
-
-
-
-plot_data <- inflation_decomposed %>%
-  mutate(
-    weighted_inflation = inflation * laspeyres_weight,
-    shock_d_s_thresh1 = factor(shock_d_s_thresh1, levels = c("Demand", "Ambiguous", "Supply"))
-  ) %>%
-  group_by(date, shock_d_s_thresh1) %>%
-  summarise(
-    inflation = sum(weighted_inflation, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  drop_na(shock_d_s_thresh1)
-
-
-inflation_weight <- inflation_decomposed %>%
-  mutate(
-    weighted_weight_demand = inflation_weight_demand * laspeyres_weight,
-    weighted_weight_supply = inflation_weight_supply * laspeyres_weight
-  ) %>%
-  group_by(date) %>%
-  summarise(
-    inflation_weight_demand = sum(weighted_weight_demand),
-    inflation_weight_supply = sum(weighted_weight_supply)
-  ) %>%
-  ungroup() %>%
-  drop_na() %>%
-  mutate(
-    net_demand_contribution = inflation_weight_demand - inflation_weight_supply
-  )
-  
-  
-
-
-ggplot(plot_data, aes(x = date, y = inflation, fill = shock_d_s_thresh1)) +
-  annotate("rect",
-           xmin = as.Date("2014-04-01"), xmax = as.Date("2015-03-31"),
-           ymin = -Inf, ymax = Inf,
-           alpha = 0.3, fill = "lightblue") +
-  annotate("rect",
-           xmin = as.Date("2019-10-01"), xmax = as.Date("2020-09-30"),
-           ymin = -Inf, ymax = Inf,
-           alpha = 0.3, fill = "lightgreen") +
-  annotate("text",
-           x = as.Date("2014-11-30"),
-           y = max(plot_data$inflation, na.rm = TRUE) + 0.3 * max(plot_data$inflation, na.rm = TRUE),
-           label = "Consumption Tax +3%",
-           vjust = 2, fontface = "bold", size = 4) +
-  annotate("text",
-           x = as.Date("2020-06-30"),
-           y = max(plot_data$inflation, na.rm = TRUE) + 0.5 * max(plot_data$inflation, na.rm = TRUE),
-           label = "Consumption Tax +2%",
-           vjust = 2, fontface = "bold", size = 4) +
-  geom_bar(stat = "identity", alpha = 0.6) +
-  scale_fill_manual(
-    name = "",
-    values = c("Supply" = "darkred", "Ambiguous" = "grey70", "Demand" = "darkblue")
-  ) +
-  labs(
-    title = "Decomposing Japan's Inflation  - Demand vs Supply Driven Components",
-    x = "Year",
-    y = "Inflation Rate",
-    caption = "Reference: Shapiro, A. H. (2024). Decomposing Supply and Demand Driven Inflation. Journal of Money, Credit and Banking.\nData:This service uses API functions from e-Stat, however its contents are not guaranteed by government."
-  ) +
-  theme_bw() + 
-  theme(
-    plot.title = element_text(face = "bold", size = 20),
-    axis.title.x = element_text(size = 16),
-    axis.text.x = element_text(size = 14),
-    axis.title.y = element_text(size = 16),
-    axis.text.y = element_text(size = 14),
-    legend.position = c(0.01, 0.99),
-    legend.justification = c("left", "top"),
-    legend.title = element_text(size = 14),
-    legend.text = element_text(size = 16),
-    plot.caption = element_text(hjust = 0, size = 10)
-  )
-
-ggsave("inflation_decomposition.png", 
-       plot = last_plot(), 
-       width = 18, 
-       height = 8, 
-       dpi = 300)
-
-
-
-# Other Analysis ---------------------------------------------------------------
-
-
-library(dplyr)
-library(ggplot2)
-
-# Assume inflation_weight already contains 'date' and 'net_demand_contribution'
-
-
+write_rds(inflation_decomposed, "inflation_decomposed.rds")
